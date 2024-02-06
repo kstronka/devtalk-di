@@ -8,7 +8,21 @@
       @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
       @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
 
-      body { font-family: 'Droid Serif'; }
+      :root {
+          --brblack: #002b36;
+          --black: #073642;
+          --brwhite: #fdf6e3;
+          --white: #eee8d5;
+          --magenta: #d33682;
+          --brmagenta: #6c71c4;
+          --bryellow: #657b83;
+          --cyan: #2aa198;
+      }
+
+      body {
+          font-family: 'Droid Serif';
+      }
+
       h1, h2, h3 {
         font-family: 'Yanone Kaffeesatz';
         font-weight: normal;
@@ -18,16 +32,65 @@
         font-size: 12px;
       }
 
-      .remark-code {
-        font-size: 12px;
-        align-self: center;
-        vertical-align: middle;
+      .hljs.remark-code {
+          border-radius: 10px;
+          align-self: center;
+          vertical-align: middle;
+
+          background: var(--brblack);
+          color: var(--brwhite);
+
+          .hljs-keyword {
+              color: var(--brmagenta);
+          }
+          .hljs-title {
+              color: var(--magenta);
+          }
+          .hljs-string {
+              color: var(--cyan);
+          }
+      }
+
+      .black-theme {
+          background-color: var(--black);
+          color: var(--brwhite);
+
+          h2, h3 {
+              color: var(--bryellow);
+          }
+      }
+
+      .light-theme {
+          .remark-inline-code {
+              color: var(--magenta);
+          }
+
+          background-color: var(--brwhite);
+          color: var(--black);
+
+          h1 {
+              color: var(--brblack);
+          }
+
+          h2, h2 {
+              color: var(--bryellow);
+          }
+
+          .quote {
+              color: var(--bryellow);
+              font-style: italic;
+              font-size: 22px;
+              text-justify: newspaper;
+              border-left: 4px solid var(--magenta);
+              padding-left: 15px;
+
+          }
       }
     </style>
   </head>
   <body>
     <textarea id="source">
-        class: center, middle
+        class: center, middle, black-theme
 
         # Fun with protocols!
         ## Implementing a DI framework in 20 minutes
@@ -35,8 +98,478 @@
         ???
         - Talk motivation
         ---
+        class: light-theme
+
         # .center[Agenda]
-        1. Protocols
+
+        --
+        count: false
+
+        1. What is a `Protocol`?
+        --
+        count: false
+
+        2. The dependency injection pattern
+        --
+        count: false
+
+        3. State of DI frameworks in python
+        --
+        count: false
+
+        4. Implementing our own DI framework!
+        ---
+        class: light-theme
+
+        # .center[Protocols]
+        ## .center[What are they?]
+        --
+        count: false
+
+        - They're extension of the typing system
+
+        --
+        count: false
+
+        - They're meant for structural subtyping in Python (static duck typing)
+
+        --
+        count: false
+
+        - An alternative to abstract base classes and zope interfaces
+
+        --
+        count: false
+
+        - Can be thought of as implicit interfaces
+
+        --
+        count: false
+
+        - They were defined in [PEP-544](https://peps.python.org/pep-0544/) and introduced in version 3.8
+
+        ---
+        class: light-theme
+        name: example-protocol
+
+        # .center[Protocols]
+        ## .center[Example protocol]
+        ---
+        template: example-protocol
+
+        ```python
+        # protocols.py
+        from typing import Protocol
+
+
+        class Greeter(Protocol):
+            def greet(user_name: str):
+                ...
+        ```
+        ---
+        template: example-protocol
+
+        ```python
+        # controller.py
+        from .protocols import Greeter
+
+
+        class CLIController:
+            def set_greeter(impl: Greeter):
+                self._greeter = impl
+
+            def greet(user_name: str):
+                self._greeter.greet(user_name)
+        ```
+        ---
+        template: example-protocol
+
+        ```python
+        # greeters.py
+
+        class HelloGreeter:
+            def greet(user_name: str):
+                print(f"Hello, {user_name}")
+
+
+        class FancyGreeter:
+            def unrelated_fancy_method():
+                self._fancy_stuff()
+
+            def greet(user_name: str):
+                greeting = (
+                    self._greeting_api
+                    .authenticate()
+                    .get_greeting()
+                    .format(user_name)
+                )
+
+                print(greeting)
+        ```
+        ---
+        template: example-protocol
+
+        ```python
+        # __main__.py
+        # ... imports
+
+        if __name__ == '__main__':
+            user_name = sys.argv[1]
+
+            controller = CLIController()
+        ```
+        ---
+        template: example-protocol
+        count: false
+
+        ```python
+        # __main__.py
+        # ... imports
+
+        if __name__ == '__main__':
+            user_name = sys.argv[1]
+
+            controller = CLIController()
+
+            controller.set_greeter(HelloGreeter)  # ok!
+            controller.greet(user_name)
+        ```
+        ---
+        template: example-protocol
+        count: false
+
+        ```python
+        # __main__.py
+        # ... imports
+
+        if __name__ == '__main__':
+            user_name = sys.argv[1]
+
+            controller = CLIController()
+
+            controller.set_greeter(HelloGreeter)  # ok!
+            controller.greet(user_name)
+
+            controller.set_greeter(FancyGreeter)  # ok!
+            controller.greet(user_name)
+        ```
+        ---
+        template: example-protocol
+        count: false
+
+        ```python
+        # __main__.py
+        # ... imports
+
+        if __name__ == '__main__':
+            user_name = sys.argv[1]
+
+            controller = CLIController()
+
+            controller.set_greeter(HelloGreeter)  # ok!
+            controller.greet(user_name)
+
+            controller.set_greeter(FancyGreeter)  # ok!
+            controller.greet(user_name)
+
+            controller.set_greeter(None)  # type checkers fail here
+            controller.greet(user_name)  # runtime error!
+        ```
+        ---
+        class: light-theme
+
+        # .center[Protocols]
+        ## .center[Great. Now what?]
+
+        --
+        count: false
+        ### Some observations:
+
+        --
+        count: false
+
+        - Very decoupled code - we only import for hinting
+        --
+        count: false
+
+        - True to python duck typing - unrelated objects can implement a protocol
+
+        --
+        count: false
+
+        - No need for subclassing or explicit registering
+
+        --
+        count: false
+
+        - They make IDE autocomplete feature understand APIs of the classes!
+
+        ---
+        class: light-theme
+
+        # .center[Protocols]
+        ## .center[Pro tip!]
+
+        You can actually write a protocol that documents a parameter to make your life easier.
+
+        Take a case of 3rd party pytest fixtures for example:
+
+        ```python
+        # tests/protocols.py
+        class ThirdPartyFixture(Protocol):
+            def assert_called():
+                ...
+
+        # test_somthing.py
+        def test_always_call_a_dependency(
+            dependency_mock: ThirdPartyFixture
+        ):
+            run()
+
+            # now we don't need to remember the api of the fixture!
+            dependency_mock.assert_called()
+        ```
+
+        ---
+        class: light-theme
+
+        # .center[Protocols]
+        ## .center[Second pro tip!]
+
+        You don't need to do `Callable[[str, Any, bool], str]` nonsense anymore!
+
+        Protocols take care of that and even support kwargs!
+
+        ```python
+        def Callback(Protocol):
+            def __call__(name: str, obj: Any, *, dry_run=False) -> str:
+                ...
+
+
+        def register_callback(func: Callback):
+            # code here
+        ```
+
+        ---
+        class: light-theme
+
+        # .center[Dependency injection]
+        ## .center[Definition]
+
+        Here's some formal definition of the dependency injection pattern [1]:
+
+        .quote[In software engineering, dependency injection is a programming technique in which an object or function receives
+        other objects or functions that it requires, as opposed to creating them internally.
+        Dependency injection aims to separate the concerns of constructing objects and using them,
+        leading to loosely coupled programs.]
+
+
+        .bottom[[1] Wikipedia contributors. (n. d.). *"Dependency injection"*.
+        Retrieved February 6, 2024, from https://en.wikipedia.org/wiki/Dependency_injection]
+
+        ---
+        class: light-theme
+        name: di-example
+
+        # .center[Dependency injection]
+        ## .center[Example]
+        ---
+        template: di-example
+
+        Let's examine this code. What's wrong here?:
+        ```python
+        from third_party_code.heavy_and_annoying import EmailDeliveryAPI
+
+
+        class NotificationSender:
+            def __init__():
+                self._api = EmailDeliveryAPI()
+
+            def send(message: str, email_to: str):
+                self._api.send(message, email_to)
+        ```
+
+        --
+        It has an external dependency!
+        - Makes it hard to test and perhaps even hard to instantiate outside prod
+        - Gives the class user no control over the email delivery backend
+
+        This will make it very painful to work with. Thanks, code author!
+
+        ???
+        This is easy to understand/refactor/throwaway. But what if it's in hundreds LOC and has that api call baked in?
+
+        ---
+        template: di-example
+
+        Can we fix this? Of course!
+
+        ```python
+        class EmailDeliveryProtocol(Protocol):
+            def send(message: str, email_to: str):
+                ...
+
+
+        class NotificationSender:
+            def __init__(api: EmailDeliveryProtocol):
+                self._api = api
+
+            def send(message: str, email_to: str):
+                self._api.send(message, email_to)
+        ```
+
+        ---
+        template: di-example
+
+        Usage can be this:
+
+        ```python
+        # __main__.py
+        from third_party_code.heavy_and_annoying import EmailDeliveryAPI
+
+        if __name__ == '__main__':
+            sender = NotificationSender(EmailDeliveryAPI())
+            # ...
+            sender.send('Have some spam!', 'jsmith@example.org')
+        ```
+
+        ---
+        template: di-example
+
+        But it can also be this!
+
+        ```python
+        def test_sender_always_call_backend_api(mocker):
+            spy = mocker.create_autospec(EmailDeliveryProtocol)
+
+            sender = NotificationSender(spy)
+            sender.send('Spam attempt', 'jsmith@example.org')
+
+            spy.send.assert_called_with(
+                'Spam attempt', 'jsmith@example.org'
+            )
+        ```
+
+        ---
+        template: di-example
+
+        And this!
+
+        ```python
+        # __main__.py
+
+        if __name__ == '__main__':
+            # ...
+
+            if settings.IS_LOCAL:
+                api = LocalMailAPI()
+            else:
+                api = EmailDeliveryAPI()
+
+            sender = NotificationSender(api)
+            # ...
+
+            # Now it pops up in our local mail logs!
+            sender.send('Have some spam!', 'jsmith@example.org')
+        ```
+
+        ---
+        template: di-example
+        ### What did we gain?
+
+        --
+        count: false
+
+        - Flexibility
+        --
+        count: false
+
+        - Ease of testing
+        --
+        count: false
+
+        - Separation of concerns - we configure the api elsewhere
+
+        --
+        count: false
+
+        It may not seem like a lot, but in real life cases there are nasty classes with thousands of LOC.
+        Those classes will internally instantiate anything from ORM to few APIs.
+
+        If those classes didn't take their
+        dependencies from outside it would be nightmare!
+
+        --
+        count: false
+
+        Often is.
+
+        ---
+        class: light-theme
+        name: di-frameworks
+
+        # .center[Dependency injection]
+        ## .center[DI frameworks]
+
+        ---
+        template: di-frameworks
+
+        ### Consider this:
+
+        ```python
+        if __name__ == '__main__':
+            sender = NotificationSender(
+                api=EmailBackend(
+                    delivery=ExternalDeliveryAPI(
+                        authenticator=ThirdPartyOAuth()
+                    )
+                )
+            )
+        ```
+        --
+        count: false
+
+        Getting ridiculous, right?
+
+        --
+        count: false
+
+        Usually people will get around this by implementing builders and factories to abstract away the assembly process.
+        Surely there must be a better way, right?
+
+        ---
+        template: di-frameworks
+
+        ### Enter DI frameworks!
+
+        The DI frameworks will do the heavy lifting and provision your dependencies for you. They will be passed from
+        the outside without you having to manually build the objects.
+
+        They will also give you control over what is
+        being injected.
+
+        Some famous dependency injection frameworks that you might know are:
+
+        - Dagger
+        - AngularJS/Angular
+        - NestJS
+
+        ---
+        template: di-frameworks
+
+        ### But what about python?
+
+        Write about pros and cons of the two standards
+
+        Dependency Injector
+
+        FastAPI
+
+        Write next slide about countless other frameworks
+
+
+
+
 
     </textarea>
     <script src="https://remarkjs.com/downloads/remark-latest.min.js">

@@ -30,6 +30,25 @@ class Require:
         return maybe_cls
 
 
+def require_kwargs(**deps):
+    def get(interface):
+        maybe_cls = _registry[interface]
+
+        if isinstance(maybe_cls, type):
+            return maybe_cls()
+
+        return maybe_cls
+
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            return func(*args, **(kwargs | {k: get(i) for k, i in deps.items()}))
+
+        return wrapper
+
+    return decorator
+
+
+
 @contextmanager
 def override(interface: type, *, using):
     old = get_from_registry(interface)

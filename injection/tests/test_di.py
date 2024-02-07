@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from src.injection.di import get_from_registry, implements, Require, override
+from src.injection.di import get_from_registry, implements, Require, override, require_kwargs
 
 
 class SimpleProtocol(Protocol):
@@ -55,5 +55,16 @@ class TestInjectionDi:
 
         spy.echo.assert_called_once_with("hello")
 
+    def test_require_kwargs_always_injects(self):
+        @implements(interface=SimpleProtocol)
+        class Echo:
+            def echo(self, message: str):
+                return message
+
+        @require_kwargs(dep=SimpleProtocol)
+        def injected_foo(message, *, dep: SimpleProtocol):
+            return dep.echo(message)
+
+        assert injected_foo('hello') == 'hello'
 
 

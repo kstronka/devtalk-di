@@ -49,6 +49,10 @@
           .hljs-string {
               color: var(--cyan);
           }
+
+          .hljs-meta {
+              color: salmon;
+          }
       }
 
       .black-theme {
@@ -76,6 +80,13 @@
               color: var(--bryellow);
           }
 
+          a {
+              text-decoration: none;
+              color: var(--cyan);
+              font-style: oblique;
+              font-family: monospace;
+          }
+
           .quote {
               color: var(--bryellow);
               font-style: italic;
@@ -83,7 +94,6 @@
               text-justify: newspaper;
               border-left: 4px solid var(--magenta);
               padding-left: 15px;
-
           }
       }
     </style>
@@ -559,20 +569,263 @@
 
         ### But what about python?
 
-        Write about pros and cons of the two standards
+        In Python, we do have two main standards in the realm of DI, that seem to have won the popularity contest:
 
-        Dependency Injector
+        - General use DI frameworks - e. g. `Dependency Injector`<br/>https://python-dependency-injector.ets-labs.org/
 
-        FastAPI
+        - Specialized DI frameworks - e. g. `FastAPI` Dependencies <br/>https://fastapi.tiangolo.com/tutorial/dependencies/
 
-        Write next slide about countless other frameworks
+        --
+        count: false
+
+        Let's see what are they offering!
+
+        ---
+        template: di-frameworks
+
+        In the `Dependency Injector` framework we declare a container for our dependencies:
+
+        ```python
+        class Container(containers.DeclarativeContainer):
+            api_client = providers.Singleton(
+                EmailAPI,
+                api_key=config.api_key,
+            )
 
 
+        @inject
+        def main(service: EmailAPI = Provide[Container.api_client]) -> None:
+            ...
+        ```
+        <figcaption>Adapted from <a>https://python-dependency-injector.ets-labs.org/</a></figcaption>
+
+        ---
+        template: di-frameworks
+
+        Then, we do the wiring at runtime:
+
+        ```python
+        if __name__ == "__main__":
+            container = Container()
+            container.api_client.api_key.from_env("API_KEY", required=True)
+            container.wire(modules=[__name__])
+
+            main()  # <-- dependency is injected automatically
+
+            with container.api_client.override(mock.Mock()):
+                main()  # <-- automatic replacement
+        ```
+        <figcaption>Adapted from <a>https://python-dependency-injector.ets-labs.org/</a></figcaption>
+
+        ---
+        template: di-frameworks
+        ### Dependency Injector pros and cons *
+        --
+        count: false
+
+        👍 Does injection and dependency assembly
+
+        👍 Highly configurable and covers every use case imaginable
+
+        👍 Well maintained; rich docs
+
+        👍 Has multiple integrations with other frameworks
+
+        --
+        count: false
+
+        👎 May be hard to set up properly
+
+        👎 Quite bloated at the same time - steep learning curve
+
+        👎 Does not decouple interface from the implementation in general
+
+        <figcaption>* author's private opinion :P</figcaption>
+
+        ---
+        template: di-frameworks
+
+        In `FastAPI` dependencies the injection is two lines:
+
+        ```python
+        async def query_parameters(
+            q: str | None = None, skip: int = 0, limit: int = 100
+        ):
+            return {"q": q, "skip": skip, "limit": limit}
 
 
+        @app.get("/echo/")
+        async def echo_arguments(
+            query_data: Annotated[dict, Depends(query_parameters)]
+        ):
+            return query_data
+        ```
+        <figcaption>Adapted from <a>https://fastapi.tiangolo.com/tutorial/dependencies/</a></figcaption>
 
+        --
+        count: false
+
+        However, the injection behaves quite different: it takes the dependency, calls it and injects its
+        results.*
+
+        <figcaption>* Which is similar to pytest fixtures btw.</figcaption>
+        ---
+        template: di-frameworks
+        ### FastAPI style pros and cons
+
+        👍 Simple and expressive
+
+        👍 Easy to understand
+
+        👍 Works out of the box
+
+        --
+        count: false
+
+        👎 Framework specific
+
+        👎 Specialized with reduced range of application
+
+        ---
+        class: light-theme
+        name: protocol-di
+
+        # .center[Protocol driven DI]
+        ## .center[Writing our own framework]
+        ---
+        template: protocol-di
+
+        All those frameworks are great, but it seems that if we **JUST** want to inject a class instance
+        into another class or instance and have it be as simple as the naive implementation there isn't much
+        python is offering us.
+
+        --
+        count: false
+
+        💡 Luckily, thanks to Python's rich syntax features we can write our own DI framework in no time!
+
+        --
+        count: false
+
+        Let's start with imagining how that could look like.
+
+        ---
+        template: protocol-di
+
+        First, we want to have an interface - preferably using a `Protocol`
+
+        ```python
+        from typing import Protocol
+
+
+        class Arithmetic(Protocol):
+            def sum(self, a: int, b: int) -> int:
+                ...
+        ```
+        <figcaption>
+        Code in this chapter is based on <code>tinyinject</code>, yet another dependency framework by yours truly.
+        <br/>Available at: <a>https://github.com/stronka/tinyinject</a> or via <code>pip install tinyinject</code>
+        </figcaption>
+
+        ---
+        template: protocol-di
+
+        Then, we want to set up a correct implementation, much like with the providers we've seen earlier:
+
+        ```python
+        from .protocols import Arithmetic
+
+
+        @implements(interface=Arithmetic)
+        class _ArithmeticImplementation:
+            def sum(self, a: int, b: int) -> int:
+                return a + b
+        ```
+        ---
+        template: protocol-di
+
+        We want to be able to request the dependency in our classes:
+
+        ```python
+        class App:
+            _dependency: Arthmetic = Require(Arithmetic)
+
+            def format_sum(self, a: int, b: int):
+                print(f"Sum of {a} and {b} is {self._dependency.sum(a, b)}")
+        ```
+
+        --
+        count: false
+
+        As well as request it as function parameters:
+
+        ```python
+        @require_kwargs(dependency=Arithmetic)
+        def format_sum(self, a: int, b: int, *, dependency: Arithmetic):
+            print(f"Sum of {a} and {b} is {dependency.sum(a, b)}")
+        ```
+
+        ---
+        class: light-theme, middle, center
+
+        # Let's get to it!
+        ## [ Live coding happens here ]
+
+        <button id="timer-btn">Start</button>
+        <div id="timer">Time left: 20:00 !</div>
+
+        ---
+        class: light-theme, middle, center
+
+        # Thank you for your attention!
     </textarea>
     <script src="https://remarkjs.com/downloads/remark-latest.min.js">
+    </script>
+    <script>
+        let intervalId = null;
+        let btn;
+
+        let callback = () => {
+            if (intervalId !== null){
+                clearInterval(intervalId);
+
+                intervalId = null;
+                btn.innerHTML = 'Start'
+                return;
+            }
+
+            let remaining_seconds = 20*60 - 1;
+
+            intervalId = setInterval(
+                () => {
+                    let minutes = Math.floor(remaining_seconds / 60);
+                    let seconds = remaining_seconds - minutes*60;
+
+                    let m = minutes.toString().padStart(2, '0');
+                    let s = seconds.toString().padStart(2, '0');
+
+                    document.getElementById("timer").innerHTML = `Time left: ${m}:${s} !`;
+                    remaining_seconds -= 1;
+
+                    if (remaining_seconds <= 0) {
+                        document.getElementById("timer").innerHtml = "Time left: 00:00";
+                    }
+                },
+                1000
+            );
+
+            btn.innerHTML = 'Stop'
+        }
+
+        setTimeout(
+            () => {
+                btn = document.getElementById("timer-btn");
+                btn.addEventListener("click", callback);
+            },
+            1000
+        )
+
+    </script>
     </script>
     <script>
       var slideshow = remark.create();
